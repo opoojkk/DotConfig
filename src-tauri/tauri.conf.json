@@ -1,0 +1,21 @@
+{
+  "package": {
+    "productName": "GitConfig Studio",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "shell": {
+        "all": true
+      }
+    },
+    "windows": [
+      {
+        "title": "GitConfig Studio",
+        "fullscreen": false,
+        "width": 1200,
+        "height": 750
+      }
+    ]
+  }
+}
