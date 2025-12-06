@@ -1,0 +1,68 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- 蓝色渐变 -->
+  <defs>
+    <linearGradient id="blueGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2f8ff8"/>
+      <stop offset="100%" stop-color="#1b70e0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 蓝色文件主体（圆角 + 折角） -->
+  <path
+    fill="url(#blueGrad)"
+    d="
+      M48 32
+      H160
+      L208 80
+      V208
+      C208 226 194 240 176 240
+      H48
+      C30 240 16 226 16 208
+      V64
+      C16 46 30 32 48 32
+      Z
+    "
+  />
+
+  <!-- 折角（亮蓝色） -->
+  <path
+    fill="#a8d5ff"
+    d="
+      M160 32
+      L208 80
+      H160
+      Z
+    "
+  />
+
+  <!-- 齿轮（位于左侧） -->
+  <g transform="translate(92 142)">
+    <!-- 外圈 -->
+    <circle cx="0" cy="0" r="30" fill="#ffffff"/>
+
+    <!-- 内圈 -->
+    <circle cx="0" cy="0" r="12" fill="#2f8ff8"/>
+
+    <!-- 齿 -->
+    <g fill="#ffffff">
+      <rect x="-4" y="-40" width="8" height="12" rx="3"/>
+      <rect x="-4" y="28"  width="8" height="12" rx="3"/>
+      <rect x="-40" y="-4" width="12" height="8" rx="3"/>
+      <rect x="28"  y="-4" width="12" height="8" rx="3"/>
+
+      <rect x="-4" y="-40" width="8" height="12" rx="3" transform="rotate(45)"/>
+      <rect x="-4" y="-40" width="8" height="12" rx="3" transform="rotate(90)"/>
+      <rect x="-4" y="-40" width="8" height="12" rx="3" transform="rotate(135)"/>
+      <rect x="-4" y="-40" width="8" height="12" rx="3" transform="rotate(180)"/>
+    </g>
+  </g>
+
+  <!-- 配置三条线（右侧） -->
+  <g fill="#ffffff" transform="translate(140 108)">
+    <rect x="0" y="0"   width="70" height="12" rx="6"/>
+    <rect x="0" y="28"  width="56" height="12" rx="6" opacity="0.95"/>
+    <rect x="0" y="56"  width="46" height="12" rx="6" opacity="0.9"/>
+  </g>
+
+</svg>
