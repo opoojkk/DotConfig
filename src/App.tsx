@@ -32,7 +32,6 @@ function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const mainRef = useRef<HTMLDivElement | null>(null);
   const activeCategoryRef = useRef(activeCategory);
-  const isScrollingRef = useRef(false); // 标记是否正在手动滚动
   const aliasStore = useAliasStore();
   const remoteStore = useRemoteStore();
 
@@ -74,46 +73,49 @@ function App() {
     activeCategoryRef.current = activeCategory;
   }, [activeCategory]);
 
+  // 基于滚动位置更新导航高亮
   useEffect(() => {
-    const root = mainRef.current;
-    if (!root) return;
+    const container = mainRef.current;
+    if (!container) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // 如果正在手动滚动，暂时不更新高亮
-        if (isScrollingRef.current) return;
+    let rafId: number | null = null;
 
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (a, b) =>
-              b.intersectionRatio - a.intersectionRatio ||
-              a.boundingClientRect.top - b.boundingClientRect.top
-          );
+    const updateActiveCategory = () => {
+      const scrollTop = container.scrollTop;
+      const offset = 120; // 触发偏移量
 
-        const targetCat = visible[0]?.target.getAttribute("data-category");
-        if (targetCat && targetCat !== activeCategoryRef.current) {
-          activeCategoryRef.current = targetCat;
-          setActiveCategory(targetCat);
+      // 从后向前遍历，找到第一个在视口上方的分类
+      for (let i = CATEGORIES.length - 1; i >= 0; i--) {
+        const category = CATEGORIES[i];
+        const el = sectionRefs.current[category];
+
+        // 检查该分类是否有内容
+        const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
+        if (!el || hasItems === 0) continue;
+
+        if (el.offsetTop <= scrollTop + offset) {
+          if (category !== activeCategoryRef.current) {
+            activeCategoryRef.current = category;
+            setActiveCategory(category);
+          }
+          break;
         }
-      },
-      {
-        root,
-        // 添加 rootMargin 提前触发，改善响应速度
-        rootMargin: "-80px 0px -60% 0px",
-        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
       }
-    );
+    };
 
-    // 只观察有内容的分类
-    Object.entries(sectionRefs.current).forEach(([category, el]) => {
-      const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
-      if (el && hasItems > 0) {
-        observer.observe(el);
-      }
-    });
+    const handleScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateActiveCategory);
+    };
 
-    return () => observer.disconnect();
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    // 初始化时也执行一次
+    updateActiveCategory();
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [groupedSchema]);
   const handleSave = async () => {
     await saveConfigToNative(scope, entries.filter((entry) => entry.scope === scope), selectedRepoPath);
@@ -394,13 +396,7 @@ function App() {
           activeCategoryRef.current = cat;
           const el = sectionRefs.current[cat];
           if (el) {
-            // 标记正在手动滚动，暂停自动高亮更新
-            isScrollingRef.current = true;
             el.scrollIntoView({ behavior: "smooth", block: "start" });
-            // 滚动结束后恢复自动高亮
-            setTimeout(() => {
-              isScrollingRef.current = false;
-            }, 1000);
           }
         }}
       />
