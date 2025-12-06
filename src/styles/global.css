@@ -16,10 +16,16 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  scrollbar-width: none;
 }
 
 * {
   box-sizing: border-box;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 a {

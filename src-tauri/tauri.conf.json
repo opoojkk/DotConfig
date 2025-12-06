@@ -19,7 +19,8 @@
         "title": "DotConfig",
         "width": 1200,
         "height": 750,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": false
       }
     ]
   },
