@@ -73,38 +73,84 @@ function App() {
     activeCategoryRef.current = activeCategory;
   }, [activeCategory]);
 
+  // 基于滚动位置更新导航高亮
   useEffect(() => {
-    const root = mainRef.current;
-    if (!root) return;
+    const container = mainRef.current;
+    if (!container) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (a, b) =>
-              b.intersectionRatio - a.intersectionRatio ||
-              a.boundingClientRect.top - b.boundingClientRect.top
-          );
+    let rafId: number | null = null;
 
-        const targetCat = visible[0]?.target.getAttribute("data-category");
-        if (targetCat && targetCat !== activeCategoryRef.current) {
-          activeCategoryRef.current = targetCat;
-          setActiveCategory(targetCat);
+    const updateActiveCategory = () => {
+      const containerRect = container.getBoundingClientRect();
+      const offset = 150; // 触发偏移量（从容器顶部算起）
+
+      console.log('[Nav Highlight] Updating, scrollTop:', container.scrollTop);
+
+      let newCategory: string | null = null;
+
+      // 从后向前遍历，找到第一个在触发位置之上的分类
+      for (let i = CATEGORIES.length - 1; i >= 0; i--) {
+        const category = CATEGORIES[i];
+        const el = sectionRefs.current[category];
+
+        // 检查该分类是否有内容
+        const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
+        if (!el || hasItems === 0) {
+          console.log(`[Nav Highlight] Skip ${category}: el=${!!el}, hasItems=${hasItems}`);
+          continue;
         }
-      },
-      {
-        root,
-        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+
+        const rect = el.getBoundingClientRect();
+        // 计算元素顶部相对于容器顶部的位置
+        const relativeTop = rect.top - containerRect.top;
+
+        console.log(`[Nav Highlight] ${category}: relativeTop=${relativeTop.toFixed(1)}, offset=${offset}`);
+
+        // 如果元素顶部在触发线之上或已经过了触发线
+        if (relativeTop <= offset) {
+          newCategory = category;
+          console.log(`[Nav Highlight] Found: ${category}`);
+          break;
+        }
       }
-    );
 
-    Object.entries(sectionRefs.current).forEach(([, el]) => {
-      if (el) observer.observe(el);
-    });
+      // 如果没有找到符合条件的分类，使用第一个有内容的分类
+      if (!newCategory) {
+        for (const category of CATEGORIES) {
+          const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
+          if (hasItems > 0) {
+            newCategory = category;
+            console.log(`[Nav Highlight] Fallback to first: ${category}`);
+            break;
+          }
+        }
+      }
 
-    return () => observer.disconnect();
-  }, [groupedSchema]);
+      // 更新高亮
+      if (newCategory && newCategory !== activeCategoryRef.current) {
+        console.log(`[Nav Highlight] Changing from ${activeCategoryRef.current} to ${newCategory}`);
+        activeCategoryRef.current = newCategory;
+        setActiveCategory(newCategory);
+      }
+    };
+
+    const handleScroll = () => {
+      console.log('[Nav Highlight] Scroll event fired');
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateActiveCategory);
+    };
+
+    console.log('[Nav Highlight] Setting up scroll listener on:', container);
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    // 初始化时也执行一次
+    updateActiveCategory();
+
+    return () => {
+      console.log('[Nav Highlight] Cleaning up scroll listener');
+      container.removeEventListener('scroll', handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [groupedSchema, target]); // 添加 target 依赖，确保目标选择后重新执行
   const handleSave = async () => {
     await saveConfigToNative(scope, entries.filter((entry) => entry.scope === scope), selectedRepoPath);
   };
@@ -381,6 +427,7 @@ function App() {
         active={activeCategory}
         onSelect={(cat) => {
           setActiveCategory(cat);
+          activeCategoryRef.current = cat;
           const el = sectionRefs.current[cat];
           if (el) {
             el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -420,42 +467,44 @@ function App() {
           </button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {groupedSchema.map(({ category, items }) => (
-            <section
-              key={category}
-              ref={(el) => {
-                sectionRefs.current[category] = el;
-              }}
-              data-category={category}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div
+          {groupedSchema
+            .filter(({ items }) => items.length > 0)
+            .map(({ category, items }) => (
+              <section
+                key={category}
+                ref={(el) => {
+                  sectionRefs.current[category] = el;
+                }}
+                data-category={category}
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <h2 style={{ margin: 0 }}>{category}</h2>
-                <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                  {items.length} 项
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                  flexDirection: "column",
                   gap: 12,
                 }}
               >
-                {items.map(renderConfigItem)}
-              </div>
-            </section>
-          ))}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <h2 style={{ margin: 0 }}>{category}</h2>
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                    {items.length} 项
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gap: 12,
+                  }}
+                >
+                  {items.map(renderConfigItem)}
+                </div>
+              </section>
+            ))}
         </div>
 
         <section style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
