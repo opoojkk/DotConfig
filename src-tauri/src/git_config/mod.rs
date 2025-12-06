@@ -30,7 +30,7 @@ impl Scope {
 
   pub fn path(&self) -> Option<PathBuf> {
     match self {
-      Scope::Local => std::env::current_dir().ok()?.join(".git/config"),
+      Scope::Local => Some(std::env::current_dir().ok()?.join(".git/config")),
       Scope::Global => dirs::home_dir().map(|p| p.join(".gitconfig")),
       Scope::System => Some(PathBuf::from("/etc/gitconfig")),
     }
@@ -55,7 +55,10 @@ pub fn read_scope_entries(scope: Scope) -> Result<Vec<ConfigEntry>, ConfigError>
   ensure_file(&path)?;
   let config = Config::open(&path).map_err(|e| ConfigError::Open(e.to_string()))?;
   let mut entries = Vec::new();
-  for entry in config.entries(None).map_err(|e| ConfigError::Open(e.to_string()))? {
+  let mut iter = config
+    .entries(None)
+    .map_err(|e| ConfigError::Open(e.to_string()))?;
+  while let Some(entry) = iter.next() {
     let entry = entry.map_err(|e| ConfigError::Open(e.to_string()))?;
     if let (Some(name), Some(raw)) = (entry.name(), entry.value()) {
       entries.push(ConfigEntry {

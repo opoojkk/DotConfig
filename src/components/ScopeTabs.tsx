@@ -4,10 +4,14 @@ const scopes = [
   { key: "local", label: "Local" },
   { key: "global", label: "Global" },
   { key: "system", label: "System" },
-  { key: "merged", label: "Merged" },
 ] as const;
 
-function ScopeTabs() {
+interface Props {
+  repoEnabled: boolean;
+  onRequireRepo?(): void;
+}
+
+function ScopeTabs({ repoEnabled, onRequireRepo }: Props) {
   const { scope, setScope } = useConfigStore();
 
   return (
@@ -15,14 +19,30 @@ function ScopeTabs() {
       {scopes.map((item) => (
         <button
           key={item.key}
-          onClick={() => setScope(item.key)}
+          onClick={() => {
+            if (item.key === "local" && !repoEnabled) {
+              onRequireRepo?.();
+              return;
+            }
+            setScope(item.key);
+          }}
+          disabled={item.key === "local" && !repoEnabled}
           style={{
             padding: "8px 14px",
             borderRadius: 10,
-            border: `1px solid ${scope === item.key ? "var(--accent)" : "var(--border)"}`,
-            background: scope === item.key ? "rgba(94,181,247,0.12)" : "var(--panel)",
-            color: "var(--text)",
-            cursor: "pointer",
+            border: `1px solid ${
+              scope === item.key ? "var(--accent)" : "var(--border)"
+            }`,
+            background:
+              scope === item.key
+                ? "rgba(94,181,247,0.12)"
+                : item.key === "local" && !repoEnabled
+                ? "rgba(255,255,255,0.04)"
+                : "var(--panel)",
+            color:
+              item.key === "local" && !repoEnabled ? "var(--muted)" : "var(--text)",
+            cursor:
+              item.key === "local" && !repoEnabled ? "not-allowed" : "pointer",
           }}
         >
           {item.label}
