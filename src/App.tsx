@@ -32,6 +32,7 @@ function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const mainRef = useRef<HTMLDivElement | null>(null);
   const activeCategoryRef = useRef(activeCategory);
+  const isScrollingRef = useRef(false); // 标记是否正在手动滚动
   const aliasStore = useAliasStore();
   const remoteStore = useRemoteStore();
 
@@ -79,6 +80,9 @@ function App() {
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // 如果正在手动滚动，暂时不更新高亮
+        if (isScrollingRef.current) return;
+
         const visible = entries
           .filter((entry) => entry.isIntersecting)
           .sort(
@@ -95,12 +99,18 @@ function App() {
       },
       {
         root,
+        // 添加 rootMargin 提前触发，改善响应速度
+        rootMargin: "-80px 0px -60% 0px",
         threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
       }
     );
 
-    Object.entries(sectionRefs.current).forEach(([, el]) => {
-      if (el) observer.observe(el);
+    // 只观察有内容的分类
+    Object.entries(sectionRefs.current).forEach(([category, el]) => {
+      const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
+      if (el && hasItems > 0) {
+        observer.observe(el);
+      }
     });
 
     return () => observer.disconnect();
@@ -381,9 +391,16 @@ function App() {
         active={activeCategory}
         onSelect={(cat) => {
           setActiveCategory(cat);
+          activeCategoryRef.current = cat;
           const el = sectionRefs.current[cat];
           if (el) {
+            // 标记正在手动滚动，暂停自动高亮更新
+            isScrollingRef.current = true;
             el.scrollIntoView({ behavior: "smooth", block: "start" });
+            // 滚动结束后恢复自动高亮
+            setTimeout(() => {
+              isScrollingRef.current = false;
+            }, 1000);
           }
         }}
       />
@@ -420,42 +437,44 @@ function App() {
           </button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {groupedSchema.map(({ category, items }) => (
-            <section
-              key={category}
-              ref={(el) => {
-                sectionRefs.current[category] = el;
-              }}
-              data-category={category}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div
+          {groupedSchema
+            .filter(({ items }) => items.length > 0)
+            .map(({ category, items }) => (
+              <section
+                key={category}
+                ref={(el) => {
+                  sectionRefs.current[category] = el;
+                }}
+                data-category={category}
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <h2 style={{ margin: 0 }}>{category}</h2>
-                <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                  {items.length} 项
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                  flexDirection: "column",
                   gap: 12,
                 }}
               >
-                {items.map(renderConfigItem)}
-              </div>
-            </section>
-          ))}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <h2 style={{ margin: 0 }}>{category}</h2>
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                    {items.length} 项
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gap: 12,
+                  }}
+                >
+                  {items.map(renderConfigItem)}
+                </div>
+              </section>
+            ))}
         </div>
 
         <section style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
