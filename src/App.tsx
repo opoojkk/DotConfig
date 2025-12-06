@@ -19,9 +19,14 @@ import Toolbar from "./components/Toolbar";
 import { open } from "@tauri-apps/plugin-dialog";
 import { createTranslator, getDescription, LOCALE_OPTIONS, Locale } from "./i18n";
 
+const LOCALE_STORAGE_KEY = "dotconfig-locale";
+
 function App() {
   const { scope, entries, setEntries, search, setScope } = useConfigStore();
   const [locale, setLocale] = useState<Locale>("en");
+  const [pendingLocale, setPendingLocale] = useState<Locale>("en");
+  const [showLocaleSetup, setShowLocaleSetup] = useState(false);
+  const [localeLoaded, setLocaleLoaded] = useState(false);
   const t = useMemo(() => createTranslator(locale), [locale]);
   const scopeLabel = useMemo(
     () => ({
@@ -47,6 +52,27 @@ function App() {
   const activeCategoryRef = useRef(activeCategory);
   const aliasStore = useAliasStore();
   const remoteStore = useRemoteStore();
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setLocaleLoaded(true);
+      return;
+    }
+    const cached = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (cached === "en" || cached === "zh") {
+      setLocale(cached);
+      setPendingLocale(cached);
+      setShowLocaleSetup(false);
+    } else {
+      setShowLocaleSetup(true);
+    }
+    setLocaleLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || showLocaleSetup || !localeLoaded) return;
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  }, [locale, showLocaleSetup, localeLoaded]);
 
   useEffect(() => {
     if (!target) return;
@@ -243,6 +269,110 @@ function App() {
     setIsDefaultValue(false);
     setShowSuggestions(false);
   };
+
+  if (!localeLoaded) {
+    return null;
+  }
+
+  if (showLocaleSetup) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background:
+            "radial-gradient(circle at 30% 20%, rgba(94,181,247,0.15), transparent 32%), radial-gradient(circle at 70% 60%, rgba(94,181,247,0.1), transparent 40%), #0b121c",
+          color: "var(--text)",
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            width: "min(960px, 100%)",
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
+            borderRadius: 16,
+            padding: 28,
+            boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+            display: "grid",
+            gap: 16,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 13, color: "var(--muted)", letterSpacing: 0.4 }}>DotConfig</div>
+              <h1 style={{ margin: "6px 0 4px" }}>Choose your language / 请选择语言</h1>
+              <p style={{ margin: 0, color: "var(--muted)", lineHeight: 1.6 }}>
+                Pick a language to use across the app. We'll remember it on this device so you do not have to set it again.
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {LOCALE_OPTIONS.map((item) => {
+              const active = pendingLocale === item.value;
+              const languageLabel = item.value === "en" ? "English" : "中文";
+              const helper = item.value === "en" ? "Use DotConfig in English" : "使用中文界面";
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => setPendingLocale(item.value)}
+                  style={{
+                    textAlign: "left",
+                    padding: "16px 18px",
+                    borderRadius: 14,
+                    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                    background: active ? "rgba(94,181,247,0.14)" : "rgba(255,255,255,0.03)",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <span style={{ fontSize: 13, color: "var(--muted)" }}>{languageLabel}</span>
+                  <span style={{ fontWeight: 700 }}>{helper}</span>
+                  {active && (
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                      This will be used as the default language.
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button
+              onClick={() => {
+                setLocale(pendingLocale);
+                setShowLocaleSetup(false);
+              }}
+              style={{
+                padding: "12px 18px",
+                borderRadius: 10,
+                border: "1px solid var(--accent)",
+                background: "var(--accent)",
+                color: "#0b121c",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Start using DotConfig
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!target) {
     return (
