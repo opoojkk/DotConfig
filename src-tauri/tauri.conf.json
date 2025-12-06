@@ -10,8 +10,12 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "security": {
+      "capabilities": ["default"]
+    },
     "windows": [
       {
+        "label": "main",
         "title": "GitConfig Studio",
         "width": 1200,
         "height": 750,

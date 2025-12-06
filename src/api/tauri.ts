@@ -7,9 +7,9 @@ const toScope = (scope: string): Scope => {
   return "local";
 };
 
-export async function loadConfigFromNative(scope: Scope): Promise<ConfigEntry[]> {
+export async function loadConfigFromNative(scope: Scope, repoPath?: string): Promise<ConfigEntry[]> {
   try {
-    const entries = (await invoke("read_scope", { scope })) as {
+    const entries = (await invoke("read_scope", { scope, repoPath })) as {
       key: string;
       value: string;
       scope: string;
@@ -31,10 +31,19 @@ export async function loadConfigFromNative(scope: Scope): Promise<ConfigEntry[]>
   }
 }
 
-export async function saveConfigToNative(scope: Scope, entries: ConfigEntry[]) {
+export async function saveConfigToNative(scope: Scope, entries: ConfigEntry[], repoPath?: string) {
   try {
-    await invoke("write_scope", { scope, entries });
+    await invoke("write_scope", { scope, repoPath, entries });
   } catch (err) {
     console.warn("Tauri bridge unavailable, skipping native write", err);
+  }
+}
+
+export async function checkGitRepo(path: string): Promise<boolean> {
+  try {
+    return await invoke("is_git_repo", { path });
+  } catch (err) {
+    console.warn("Tauri bridge unavailable, fallback false", err);
+    return false;
   }
 }

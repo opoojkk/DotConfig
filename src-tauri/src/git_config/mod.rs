@@ -1,4 +1,4 @@
-use git2::Config;
+use git2::{Config, Repository};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::PathBuf};
 use thiserror::Error;
@@ -9,6 +9,8 @@ pub enum ConfigError {
   Open(String),
   #[error("io error: {0}")]
   Io(String),
+  #[error("not a git repository: {0}")]
+  NotRepo(String),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -28,14 +30,6 @@ impl Scope {
     }
   }
 
-  pub fn path(&self) -> Option<PathBuf> {
-    match self {
-      Scope::Local => Some(std::env::current_dir().ok()?.join(".git/config")),
-      Scope::Global => dirs::home_dir().map(|p| p.join(".gitconfig")),
-      Scope::System => Some(PathBuf::from("/etc/gitconfig")),
-    }
-  }
-
   pub fn variants() -> Vec<Scope> {
     vec![Scope::Local, Scope::Global, Scope::System]
   }
@@ -50,8 +44,8 @@ pub struct ConfigEntry {
   pub overridden_by: Option<Scope>,
 }
 
-pub fn read_scope_entries(scope: Scope) -> Result<Vec<ConfigEntry>, ConfigError> {
-  let path = scope.path().ok_or_else(|| ConfigError::Open("无法解析配置路径".into()))?;
+pub fn read_scope_entries(scope: Scope, repo_path: Option<&str>) -> Result<Vec<ConfigEntry>, ConfigError> {
+  let path = resolve_path(scope, repo_path)?;
   ensure_file(&path)?;
   let config = Config::open(&path).map_err(|e| ConfigError::Open(e.to_string()))?;
   let mut entries = Vec::new();
@@ -72,8 +66,12 @@ pub fn read_scope_entries(scope: Scope) -> Result<Vec<ConfigEntry>, ConfigError>
   Ok(entries)
 }
 
-pub fn write_scope_entries(scope: Scope, entries: Vec<ConfigEntry>) -> Result<(), ConfigError> {
-  let path = scope.path().ok_or_else(|| ConfigError::Open("无法解析配置路径".into()))?;
+pub fn write_scope_entries(
+  scope: Scope,
+  repo_path: Option<&str>,
+  entries: Vec<ConfigEntry>,
+) -> Result<(), ConfigError> {
+  let path = resolve_path(scope, repo_path)?;
   ensure_file(&path)?;
   let mut config = Config::open(&path).map_err(|e| ConfigError::Open(e.to_string()))?;
   for entry in entries {
@@ -90,7 +88,7 @@ pub fn merged_view() -> Result<Vec<ConfigEntry>, ConfigError> {
   let mut history: Vec<ConfigEntry> = Vec::new();
 
   for scope in priority {
-    let entries = read_scope_entries(scope)?;
+    let entries = read_scope_entries(scope, None)?;
     for entry in entries {
       if let Some(prev) = effective.get_mut(&entry.key) {
         history.push(ConfigEntry {
@@ -116,4 +114,34 @@ fn ensure_file(path: &PathBuf) -> Result<(), ConfigError> {
     fs::File::create(path).map_err(|e| ConfigError::Io(e.to_string()))?;
   }
   Ok(())
+}
+
+fn resolve_path(scope: Scope, repo_path: Option<&str>) -> Result<PathBuf, ConfigError> {
+  match scope {
+    Scope::Local => {
+      if let Some(repo) = repo_path {
+        let repo = Repository::open(repo)
+          .map_err(|_| ConfigError::NotRepo(repo.to_string()))?;
+        Ok(repo.path().join("config"))
+      } else {
+        std::env::current_dir()
+          .map(|p| p.join(".git/config"))
+          .map_err(|e| ConfigError::Open(e.to_string()))
+      }
+    }
+    Scope::Global => dirs::home_dir()
+      .map(|p| p.join(".gitconfig"))
+      .ok_or_else(|| ConfigError::Open("无法解析全局配置路径".into())),
+    Scope::System => Ok(PathBuf::from("/etc/gitconfig")),
+  }
+}
+
+pub fn is_git_repo(path: &str) -> bool {
+  Repository::open(path).is_ok()
+}
+
+pub fn path_for_scope(scope: Scope) -> Option<String> {
+  resolve_path(scope, None)
+    .ok()
+    .map(|p| p.to_string_lossy().to_string())
 }

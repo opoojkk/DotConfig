@@ -10,6 +10,7 @@ thiserror = "1.0"
 dirs = "5.0"
 git2 = "0.18"
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
