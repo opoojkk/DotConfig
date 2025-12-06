@@ -84,6 +84,8 @@ function App() {
       const containerRect = container.getBoundingClientRect();
       const offset = 150; // 触发偏移量（从容器顶部算起）
 
+      console.log('[Nav Highlight] Updating, scrollTop:', container.scrollTop);
+
       let newCategory: string | null = null;
 
       // 从后向前遍历，找到第一个在触发位置之上的分类
@@ -93,15 +95,21 @@ function App() {
 
         // 检查该分类是否有内容
         const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
-        if (!el || hasItems === 0) continue;
+        if (!el || hasItems === 0) {
+          console.log(`[Nav Highlight] Skip ${category}: el=${!!el}, hasItems=${hasItems}`);
+          continue;
+        }
 
         const rect = el.getBoundingClientRect();
         // 计算元素顶部相对于容器顶部的位置
         const relativeTop = rect.top - containerRect.top;
 
+        console.log(`[Nav Highlight] ${category}: relativeTop=${relativeTop.toFixed(1)}, offset=${offset}`);
+
         // 如果元素顶部在触发线之上或已经过了触发线
         if (relativeTop <= offset) {
           newCategory = category;
+          console.log(`[Nav Highlight] Found: ${category}`);
           break;
         }
       }
@@ -112,6 +120,7 @@ function App() {
           const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
           if (hasItems > 0) {
             newCategory = category;
+            console.log(`[Nav Highlight] Fallback to first: ${category}`);
             break;
           }
         }
@@ -119,25 +128,29 @@ function App() {
 
       // 更新高亮
       if (newCategory && newCategory !== activeCategoryRef.current) {
+        console.log(`[Nav Highlight] Changing from ${activeCategoryRef.current} to ${newCategory}`);
         activeCategoryRef.current = newCategory;
         setActiveCategory(newCategory);
       }
     };
 
     const handleScroll = () => {
+      console.log('[Nav Highlight] Scroll event fired');
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(updateActiveCategory);
     };
 
+    console.log('[Nav Highlight] Setting up scroll listener on:', container);
     container.addEventListener('scroll', handleScroll, { passive: true });
     // 初始化时也执行一次
     updateActiveCategory();
 
     return () => {
+      console.log('[Nav Highlight] Cleaning up scroll listener');
       container.removeEventListener('scroll', handleScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [groupedSchema]);
+  }, [groupedSchema, target]); // 添加 target 依赖，确保目标选择后重新执行
   const handleSave = async () => {
     await saveConfigToNative(scope, entries.filter((entry) => entry.scope === scope), selectedRepoPath);
   };
