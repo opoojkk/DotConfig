@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORIES, CONFIG_SCHEMA } from "./schema/configSchema";
 import {
   ConfigEntry,
@@ -17,9 +17,22 @@ import RemoteEditor from "./components/RemoteEditor";
 import DiffSummary from "./components/DiffSummary";
 import Toolbar from "./components/Toolbar";
 import { open } from "@tauri-apps/plugin-dialog";
+import { createTranslator, getDescription, LOCALE_OPTIONS, Locale } from "./i18n";
 
 function App() {
   const { scope, entries, setEntries, search, setScope } = useConfigStore();
+  const [locale, setLocale] = useState<Locale>("en");
+  const t = useMemo(() => createTranslator(locale), [locale]);
+  const scopeLabel = useMemo(
+    () => ({
+      local: t("scopeLocal"),
+      global: t("scopeGlobal"),
+      system: t("scopeSystem"),
+      merged: t("scopeMerged"),
+    }),
+    [t]
+  );
+
   const [activeCategory, setActiveCategory] = useState<string>(CATEGORIES[0]);
   const [target, setTarget] = useState<"global" | "repo" | null>(null);
   const [repoInput, setRepoInput] = useState("");
@@ -59,12 +72,18 @@ function App() {
   const renderConfigItem = (meta: (typeof CONFIG_SCHEMA)[number]) => {
     const scopedEntries = entries.filter((entry) => entry.key === meta.key);
     const effective = getEffectiveValue(entries, meta.key);
+    const metaWithDescription = {
+      ...meta,
+      description: getDescription(meta.key, locale) ?? meta.description,
+    };
     return (
       <ConfigItem
         key={`${meta.key}-${scope}`}
-        meta={meta}
+        meta={metaWithDescription}
         entries={scopedEntries}
         effective={effective ?? undefined}
+        t={t}
+        scopeLabel={scopeLabel}
       />
     );
   };
@@ -73,7 +92,6 @@ function App() {
     activeCategoryRef.current = activeCategory;
   }, [activeCategory]);
 
-  // 基于滚动位置更新导航高亮
   useEffect(() => {
     const container = mainRef.current;
     if (!container) return;
@@ -82,75 +100,58 @@ function App() {
 
     const updateActiveCategory = () => {
       const containerRect = container.getBoundingClientRect();
-      const offset = 150; // 触发偏移量（从容器顶部算起）
-
-      console.log('[Nav Highlight] Updating, scrollTop:', container.scrollTop);
+      const offset = 150;
 
       let newCategory: string | null = null;
 
-      // 从后向前遍历，找到第一个在触发位置之上的分类
       for (let i = CATEGORIES.length - 1; i >= 0; i--) {
         const category = CATEGORIES[i];
         const el = sectionRefs.current[category];
 
-        // 检查该分类是否有内容
-        const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
+        const hasItems = groupedSchema.find((g) => g.category === category)?.items.length ?? 0;
         if (!el || hasItems === 0) {
-          console.log(`[Nav Highlight] Skip ${category}: el=${!!el}, hasItems=${hasItems}`);
           continue;
         }
 
         const rect = el.getBoundingClientRect();
-        // 计算元素顶部相对于容器顶部的位置
         const relativeTop = rect.top - containerRect.top;
 
-        console.log(`[Nav Highlight] ${category}: relativeTop=${relativeTop.toFixed(1)}, offset=${offset}`);
-
-        // 如果元素顶部在触发线之上或已经过了触发线
         if (relativeTop <= offset) {
           newCategory = category;
-          console.log(`[Nav Highlight] Found: ${category}`);
           break;
         }
       }
 
-      // 如果没有找到符合条件的分类，使用第一个有内容的分类
       if (!newCategory) {
         for (const category of CATEGORIES) {
-          const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
+          const hasItems = groupedSchema.find((g) => g.category === category)?.items.length ?? 0;
           if (hasItems > 0) {
             newCategory = category;
-            console.log(`[Nav Highlight] Fallback to first: ${category}`);
             break;
           }
         }
       }
 
-      // 更新高亮
       if (newCategory && newCategory !== activeCategoryRef.current) {
-        console.log(`[Nav Highlight] Changing from ${activeCategoryRef.current} to ${newCategory}`);
         activeCategoryRef.current = newCategory;
         setActiveCategory(newCategory);
       }
     };
 
     const handleScroll = () => {
-      console.log('[Nav Highlight] Scroll event fired');
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(updateActiveCategory);
     };
 
-    console.log('[Nav Highlight] Setting up scroll listener on:', container);
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    // 初始化时也执行一次
+    container.addEventListener("scroll", handleScroll, { passive: true });
     updateActiveCategory();
 
     return () => {
-      console.log('[Nav Highlight] Cleaning up scroll listener');
-      container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener("scroll", handleScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [groupedSchema, target]); // 添加 target 依赖，确保目标选择后重新执行
+  }, [groupedSchema, target]);
+
   const handleSave = async () => {
     await saveConfigToNative(scope, entries.filter((entry) => entry.scope === scope), selectedRepoPath);
   };
@@ -166,7 +167,7 @@ function App() {
     if (!path) return;
     const ok = await checkGitRepo(path);
     if (!ok) {
-      alert("该目录不是有效的 git 仓库，请重新选择。");
+      alert(t("invalidRepo"));
       return;
     }
     setTarget("repo");
@@ -177,9 +178,8 @@ function App() {
 
   const handlePickRepo = async () => {
     try {
-      // 在浏览器模式下没有 Tauri 环境，使用 prompt 兜底
       if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
-        const manual = window.prompt("请输入仓库路径");
+        const manual = window.prompt(t("promptRepo"));
         if (manual) setRepoInput(manual);
         return;
       }
@@ -187,13 +187,13 @@ function App() {
       const path = await open({
         directory: true,
         multiple: false,
-        title: "选择一个仓库目录",
+        title: t("landingRepoHeading"),
         defaultPath: repoInput || undefined,
       });
       if (typeof path === "string") {
         const ok = await checkGitRepo(path);
         if (!ok) {
-          alert("该目录不是有效的 git 仓库，请重新选择。");
+          alert(t("invalidRepo"));
           return;
         }
         setRepoInput(path);
@@ -203,8 +203,8 @@ function App() {
         setScope("local");
       }
     } catch (err) {
-      console.warn("选择目录失败", err);
-      alert("选择目录失败，请重试或手动输入路径。");
+      console.warn("Select repo failed", err);
+      alert(t("pickRepoFail"));
     }
   };
 
@@ -228,13 +228,13 @@ function App() {
     const value = newValue || getDefaultValueByType(key);
     const existing = entries.find((entry) => entry.key === key && entry.scope === scope);
     if (existing) {
-      const ok = window.confirm("该配置已存在，是否覆盖？");
+      const ok = window.confirm(t("overwriteConfirm"));
       if (!ok) return;
     }
     const nextEntries = existing
       ? entries.map((entry) =>
-        entry.key === key && entry.scope === scope ? { ...entry, value } : entry
-      )
+          entry.key === key && entry.scope === scope ? { ...entry, value } : entry
+        )
       : [...entries, { key, value, scope }];
     setEntries(nextEntries);
     setShowAddModal(false);
@@ -273,10 +273,10 @@ function App() {
               padding: 20,
             }}
           >
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>或者</div>
-            <h2 style={{ margin: '4px 0 8px' }}>选择一个仓库</h2>
-            <p style={{ marginTop: 0, color: 'var(--muted)', lineHeight: 1.6 }}>
-              通过系统文件夹选择器指定仓库目录，进入该仓库的配置（对应本地配置）。
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 6 }}>{t("landingOr")}</div>
+            <h2 style={{ margin: "4px 0 8px" }}>{t("landingGlobalHeading")}</h2>
+            <p style={{ marginTop: 0, color: "var(--muted)", lineHeight: 1.6 }}>
+              {t("landingGlobalDesc")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
               <button
@@ -291,9 +291,9 @@ function App() {
                   textAlign: "left",
                 }}
               >
-                <div style={{ fontWeight: 700 }}>打开全局配置</div>
+                <div style={{ fontWeight: 700 }}>{t("landingGlobalButton")}</div>
                 <div style={{ color: "var(--muted)", fontSize: 13 }}>
-                  作用于所有仓库的全局 git 设置
+                  {t("targetGlobal")}
                 </div>
               </button>
             </div>
@@ -310,10 +310,10 @@ function App() {
               gap: 10,
             }}
           >
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>或者</div>
-            <h2 style={{ margin: '4px 0 8px' }}>选择一个仓库</h2>
-            <p style={{ marginTop: 0, color: 'var(--muted)', lineHeight: 1.6 }}>
-              通过系统文件夹选择器指定仓库目录，进入该仓库的配置（对应本地配置）。
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 6 }}>{t("landingOr")}</div>
+            <h2 style={{ margin: "4px 0 8px" }}>{t("landingRepoHeading")}</h2>
+            <p style={{ marginTop: 0, color: "var(--muted)", lineHeight: 1.6 }}>
+              {t("landingRepoDesc")}
             </p>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <button
@@ -328,10 +328,10 @@ function App() {
                   fontWeight: 600,
                 }}
               >
-                选择文件夹
+                {t("landingPickFolder")}
               </button>
               <span style={{ color: "var(--muted)", fontSize: 13 }}>
-                {repoInput || "未选择"}
+                {repoInput || t("landingNotSelected")}
               </span>
             </div>
             <button
@@ -347,7 +347,7 @@ function App() {
                 fontWeight: 700,
               }}
             >
-              打开仓库
+              {t("landingOpenRepo")}
             </button>
           </div>
         </div>
@@ -381,7 +381,7 @@ function App() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontWeight: 700, letterSpacing: 0.5 }}>GitConfig Studio</div>
+          <div style={{ fontWeight: 700, letterSpacing: 0.5 }}>{t("appTitle")}</div>
           <div
             style={{
               padding: "6px 10px",
@@ -392,7 +392,7 @@ function App() {
               fontSize: 13,
             }}
           >
-            {target === "global" ? "全局配置" : `仓库：${selectedRepo}`}
+            {target === "global" ? t("globalBadgeLabel") : `${t("repoBadgeLabel")} ${selectedRepo}`}
           </div>
           <button
             onClick={() => {
@@ -409,16 +409,37 @@ function App() {
               fontSize: 12,
             }}
           >
-            切换目标
+            {t("switchTarget")}
           </button>
         </div>
         <ScopeTabs
           repoEnabled={Boolean(selectedRepo)}
-          onRequireRepo={() => alert("请先选择一个仓库，才能查看仓库配置")}
+          onRequireRepo={() => alert(t("requireRepo"))}
+          labels={{
+            local: scopeLabel.local,
+            global: scopeLabel.global,
+            system: scopeLabel.system,
+          }}
         />
-        <div style={{ display: "flex", gap: 12, color: "var(--muted)" }}>
-          <span>Snapshots</span>
-          <span>Help</span>
+        <div style={{ display: "flex", gap: 8, color: "var(--muted)", alignItems: "center" }}>
+          <span style={{ fontSize: 12 }}>{t("languageLabel")}</span>
+          <select
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as Locale)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              background: "var(--panel)",
+              color: "var(--text)",
+            }}
+          >
+            {LOCALE_OPTIONS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.value === "en" ? t("languageEnglish") : t("languageChinese")}
+              </option>
+            ))}
+          </select>
         </div>
       </header>
 
@@ -433,6 +454,7 @@ function App() {
             el.scrollIntoView({ behavior: "smooth", block: "start" });
           }
         }}
+        t={t}
       />
 
       <main
@@ -448,7 +470,7 @@ function App() {
           height: "calc(100vh - 64px)",
         }}
       >
-        <Toolbar onSave={handleSave} />
+        <Toolbar onSave={handleSave} t={t} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div />
           <button
@@ -463,7 +485,7 @@ function App() {
               fontWeight: 600,
             }}
           >
-            添加配置
+            {t("addConfig")}
           </button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -491,7 +513,7 @@ function App() {
                 >
                   <h2 style={{ margin: 0 }}>{category}</h2>
                   <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                    {items.length} 项
+                    {items.length} {t("itemsSuffix")}
                   </span>
                 </div>
                 <div
@@ -509,16 +531,16 @@ function App() {
 
         <section style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
           <div style={{ background: "var(--panel)", padding: 16, borderRadius: 12 }}>
-            <h3 style={{ marginTop: 0 }}>Alias 管理</h3>
-            <AliasEditor store={aliasStore} />
+            <h3 style={{ marginTop: 0 }}>{t("aliasTitle")}</h3>
+            <AliasEditor store={aliasStore} t={t} />
           </div>
           <div style={{ background: "var(--panel)", padding: 16, borderRadius: 12 }}>
-            <h3 style={{ marginTop: 0 }}>Remote 管理</h3>
-            <RemoteEditor store={remoteStore} />
+            <h3 style={{ marginTop: 0 }}>{t("remoteTitle")}</h3>
+            <RemoteEditor store={remoteStore} t={t} />
           </div>
         </section>
 
-        <DiffSummary entries={entries} />
+        <DiffSummary entries={entries} t={t} />
       </main>
 
       {showAddModal && (
@@ -546,9 +568,9 @@ function App() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 12 }}>添加配置项</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 12 }}>{t("addConfigTitle")}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <label style={{ fontSize: 13, color: "var(--muted)" }}>配置键</label>
+              <label style={{ fontSize: 13, color: "var(--muted)" }}>{t("configKeyLabel")}</label>
               <div style={{ position: "relative" }}>
                 <input
                   value={newKey}
@@ -558,7 +580,7 @@ function App() {
                     setShowSuggestions(true);
                   }}
                   onFocus={() => newKey && setShowSuggestions(true)}
-                  placeholder="如：user.name"
+                  placeholder={t("configKeyPlaceholder")}
                   style={{
                     width: "100%",
                     padding: "10px 12px",
@@ -608,14 +630,14 @@ function App() {
                 )}
               </div>
 
-              <label style={{ fontSize: 13, color: "var(--muted)" }}>值</label>
+              <label style={{ fontSize: 13, color: "var(--muted)" }}>{t("configValueLabel")}</label>
               <input
                 value={newValue}
                 onChange={(e) => {
                   setNewValue(e.target.value);
                   setIsDefaultValue(false);
                 }}
-                placeholder="填写配置值"
+                placeholder={t("configValuePlaceholder")}
                 style={{
                   width: "100%",
                   padding: "10px 12px",
@@ -628,7 +650,7 @@ function App() {
 
               {isDefaultValue && (
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                  已使用该键的默认值
+                  {t("defaultValueApplied")}
                 </div>
               )}
 
@@ -644,7 +666,7 @@ function App() {
                     cursor: "pointer",
                   }}
                 >
-                  取消
+                  {t("cancel")}
                 </button>
                 <button
                   onClick={handleAddConfig}
@@ -659,7 +681,7 @@ function App() {
                   }}
                   disabled={!newKey.trim()}
                 >
-                  保存
+                  {t("save")}
                 </button>
               </div>
             </div>

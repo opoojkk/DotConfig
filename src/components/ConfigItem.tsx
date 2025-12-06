@@ -1,25 +1,25 @@
 import type { ConfigMeta } from "../schema/configSchema";
 import { ConfigEntry, Scope, useConfigStore } from "../stores/configStore";
+import type { Translate } from "../i18n";
 
 interface Props {
   meta: ConfigMeta;
   entries: ConfigEntry[];
   effective?: ConfigEntry;
+  t: Translate;
+  scopeLabel: Record<Scope, string>;
 }
-
-const scopeLabel: Record<Scope, string> = {
-  local: "Local",
-  global: "Global",
-  system: "System",
-  merged: "Merged",
-};
 
 function ValueInput({
   meta,
   entry,
+  t,
+  scopeLabel,
 }: {
   meta: ConfigMeta;
   entry: ConfigEntry;
+  t: Translate;
+  scopeLabel: Record<Scope, string>;
 }) {
   const { updateValue } = useConfigStore();
   if (meta.type === "boolean") {
@@ -30,7 +30,7 @@ function ValueInput({
           checked={entry.value === "true"}
           onChange={(e) => updateValue(meta.key, entry.scope, String(e.target.checked))}
         />
-        <span>{entry.value === "true" ? "启用" : "禁用"}</span>
+        <span>{entry.value === "true" ? t("enabled") : t("disabled")}</span>
       </label>
     );
   }
@@ -56,7 +56,7 @@ function ValueInput({
       type="text"
       value={entry.value}
       onChange={(e) => updateValue(meta.key, entry.scope, e.target.value)}
-      placeholder={meta.type === "path" ? "/usr/bin/vim" : "输入值"}
+      placeholder={meta.type === "path" ? t("configPathPlaceholder") : t("configValuePlaceholder")}
       style={{
         padding: 10,
         width: "100%",
@@ -69,7 +69,7 @@ function ValueInput({
   );
 }
 
-function ConfigItem({ meta, entries, effective }: Props) {
+function ConfigItem({ meta, entries, effective, t, scopeLabel }: Props) {
   const mergedEntries = entries.length
     ? entries
     : [{ key: meta.key, value: "", scope: "local" as Scope }];
@@ -93,7 +93,8 @@ function ConfigItem({ meta, entries, effective }: Props) {
         </div>
         {effective && (
           <div style={{ fontSize: 12, color: "var(--accent)" }}>
-            生效值: <strong>{effective.value || "<空>"}</strong> ({scopeLabel[effective.scope]})
+            {t("effectiveValue")}:{" "}
+            <strong>{effective.value || t("emptyPlaceholder")}</strong> ({scopeLabel[effective.scope]})
           </div>
         )}
       </header>
@@ -123,11 +124,11 @@ function ConfigItem({ meta, entries, effective }: Props) {
               <span>{scopeLabel[entry.scope]}</span>
               {entry.overriddenBy && (
                 <span style={{ color: "var(--warning)" }}>
-                  被 {scopeLabel[entry.overriddenBy]} 覆盖
+                  {t("overriddenBy")}: {scopeLabel[entry.overriddenBy]}
                 </span>
               )}
             </div>
-            <ValueInput meta={meta} entry={entry} />
+            <ValueInput meta={meta} entry={entry} t={t} scopeLabel={scopeLabel} />
           </div>
         ))}
       </div>

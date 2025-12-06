@@ -1,13 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useConfigStore } from "../stores/configStore";
+import type { Translate } from "../i18n";
 
 interface Props {
   onSave(): void;
+  t: Translate;
 }
 
-function Toolbar({ onSave }: Props) {
+function Toolbar({ onSave, t }: Props) {
   const { search, setSearch } = useConfigStore();
-  const [message, setMessage] = useState("已加载当前作用域配置");
+  const [message, setMessage] = useState(t("loadedMessage"));
+
+  useEffect(() => {
+    setMessage(t("loadedMessage"));
+  }, [t]);
 
   return (
     <div
@@ -22,7 +28,7 @@ function Toolbar({ onSave }: Props) {
       }}
     >
       <input
-        placeholder="搜索 key 或 label"
+        placeholder={t("searchPlaceholder")}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         style={{
@@ -43,9 +49,9 @@ function Toolbar({ onSave }: Props) {
           color: "var(--text)",
           cursor: "pointer",
         }}
-        onClick={() => setMessage("已撤销最新更改")}
+        onClick={() => setMessage(t("undoMessage"))}
       >
-        Undo
+        {t("undo")}
       </button>
       <button
         style={{
@@ -56,9 +62,9 @@ function Toolbar({ onSave }: Props) {
           color: "var(--text)",
           cursor: "pointer",
         }}
-        onClick={() => setMessage("已重做更改")}
+        onClick={() => setMessage(t("redoMessage"))}
       >
-        Redo
+        {t("redo")}
       </button>
       <button
         style={{
@@ -72,10 +78,10 @@ function Toolbar({ onSave }: Props) {
         }}
         onClick={() => {
           onSave();
-          setMessage("已保存到当前作用域");
+          setMessage(t("savedMessage"));
         }}
       >
-        保存
+        {t("save")}
       </button>
       <span style={{ color: "var(--muted)", fontSize: 12 }}>{message}</span>
     </div>

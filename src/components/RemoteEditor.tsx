@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { RemoteItem } from "../stores/remoteStore";
+import type { Translate } from "../i18n";
 
 interface Props {
   store: {
@@ -8,9 +9,10 @@ interface Props {
     updateRemote: (name: string, payload: Partial<RemoteItem>) => void;
     removeRemote: (name: string) => void;
   };
+  t: Translate;
 }
 
-function RemoteEditor({ store }: Props) {
+function RemoteEditor({ store, t }: Props) {
   const [name, setName] = useState("");
   const [fetchUrl, setFetchUrl] = useState("");
   const [pushUrl, setPushUrl] = useState("");
@@ -51,10 +53,10 @@ function RemoteEditor({ store }: Props) {
                 cursor: "pointer",
               }}
             >
-              删除
+              {t("remoteDelete")}
             </button>
           </div>
-          <label style={{ fontSize: 12, color: "var(--muted)" }}>Fetch URL</label>
+          <label style={{ fontSize: 12, color: "var(--muted)" }}>{t("remoteFetchLabel")}</label>
           <input
             value={remote.fetchUrl}
             onChange={(e) => store.updateRemote(remote.name, { fetchUrl: e.target.value })}
@@ -66,7 +68,7 @@ function RemoteEditor({ store }: Props) {
               color: "var(--text)",
             }}
           />
-          <label style={{ fontSize: 12, color: "var(--muted)" }}>Push URL</label>
+          <label style={{ fontSize: 12, color: "var(--muted)" }}>{t("remotePushLabel")}</label>
           <input
             value={remote.pushUrl ?? ""}
             onChange={(e) => store.updateRemote(remote.name, { pushUrl: e.target.value })}
@@ -83,7 +85,7 @@ function RemoteEditor({ store }: Props) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
         <input
-          placeholder="远程名称 (如 origin)"
+          placeholder={t("remoteNamePlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{
@@ -95,7 +97,7 @@ function RemoteEditor({ store }: Props) {
           }}
         />
         <input
-          placeholder="Fetch URL"
+          placeholder={t("remoteFetchPlaceholder")}
           value={fetchUrl}
           onChange={(e) => setFetchUrl(e.target.value)}
           style={{
@@ -107,7 +109,7 @@ function RemoteEditor({ store }: Props) {
           }}
         />
         <input
-          placeholder="Push URL (可选)"
+          placeholder={t("remotePushPlaceholder")}
           value={pushUrl}
           onChange={(e) => setPushUrl(e.target.value)}
           style={{
@@ -130,7 +132,7 @@ function RemoteEditor({ store }: Props) {
             fontWeight: 700,
           }}
         >
-          新增远程
+          {t("remoteAdd")}
         </button>
       </div>
     </div>

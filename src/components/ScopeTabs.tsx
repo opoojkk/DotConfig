@@ -9,9 +9,14 @@ const scopes = [
 interface Props {
   repoEnabled: boolean;
   onRequireRepo?(): void;
+  labels?: {
+    local: string;
+    global: string;
+    system: string;
+  };
 }
 
-function ScopeTabs({ repoEnabled, onRequireRepo }: Props) {
+function ScopeTabs({ repoEnabled, onRequireRepo, labels }: Props) {
   const { scope, setScope } = useConfigStore();
 
   return (
@@ -45,7 +50,7 @@ function ScopeTabs({ repoEnabled, onRequireRepo }: Props) {
               item.key === "local" && !repoEnabled ? "not-allowed" : "pointer",
           }}
         >
-          {item.label}
+          {labels?.[item.key] ?? item.label}
         </button>
       ))}
     </div>

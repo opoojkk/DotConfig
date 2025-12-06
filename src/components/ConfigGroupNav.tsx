@@ -1,10 +1,13 @@
+import type { Translate } from "../i18n";
+
 interface Props {
   categories: string[];
   active: string;
   onSelect(category: string): void;
+  t: Translate;
 }
 
-function ConfigGroupNav({ categories, active, onSelect }: Props) {
+function ConfigGroupNav({ categories, active, onSelect, t }: Props) {
   return (
     <aside
       style={{
@@ -14,7 +17,7 @@ function ConfigGroupNav({ categories, active, onSelect }: Props) {
       }}
     >
       <div style={{ marginBottom: 12, color: "var(--muted)", fontSize: 13 }}>
-        配置组
+        {t("navTitle")}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {categories.map((cat) => (

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "GitConfig Studio",
+  "productName": "DotConfig",
   "version": "0.1.0",
   "identifier": "com.example.gitconfigstudio",
   "build": {
@@ -16,7 +16,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "GitConfig Studio",
+        "title": "DotConfig",
         "width": 1200,
         "height": 750,
         "fullscreen": false

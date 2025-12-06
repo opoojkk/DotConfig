@@ -1,11 +1,13 @@
 import { CONFIG_SCHEMA } from "../schema/configSchema";
 import { ConfigEntry } from "../stores/configStore";
+import type { Translate } from "../i18n";
 
 interface Props {
   entries: ConfigEntry[];
+  t: Translate;
 }
 
-function DiffSummary({ entries }: Props) {
+function DiffSummary({ entries, t }: Props) {
   const changedKeys = CONFIG_SCHEMA.filter((meta) =>
     entries.some((entry) => entry.key === meta.key && entry.value !== "")
   );
@@ -21,9 +23,9 @@ function DiffSummary({ entries }: Props) {
     >
       <header style={{ display: "flex", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontWeight: 700 }}>覆盖关系 & Diff</div>
+          <div style={{ fontWeight: 700 }}>{t("diffTitle")}</div>
           <div style={{ color: "var(--muted)", fontSize: 12 }}>
-            高亮不同作用域的值，帮助发现冲突
+            {t("diffSubtitle")}
           </div>
         </div>
         <button
@@ -36,7 +38,7 @@ function DiffSummary({ entries }: Props) {
             cursor: "pointer",
           }}
         >
-          导出快照
+          {t("diffExport")}
         </button>
       </header>
 
@@ -60,12 +62,12 @@ function DiffSummary({ entries }: Props) {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <strong>{meta.key}</strong>
-                {hasConflict && <span style={{ color: "var(--warning)" }}>存在冲突</span>}
+                {hasConflict && <span style={{ color: "var(--warning)" }}>{t("diffConflict")}</span>}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 8 }}>
-                <ValueCell label="Local" value={local?.value} />
-                <ValueCell label="Global" value={global?.value} />
-                <ValueCell label="System" value={system?.value} />
+                <ValueCell label={t("scopeLocal")} value={local?.value} t={t} />
+                <ValueCell label={t("scopeGlobal")} value={global?.value} t={t} />
+                <ValueCell label={t("scopeSystem")} value={system?.value} t={t} />
               </div>
             </div>
           );
@@ -75,7 +77,7 @@ function DiffSummary({ entries }: Props) {
   );
 }
 
-function ValueCell({ label, value }: { label: string; value?: string }) {
+function ValueCell({ label, value, t }: { label: string; value?: string; t: Translate }) {
   return (
     <div
       style={{
@@ -87,7 +89,7 @@ function ValueCell({ label, value }: { label: string; value?: string }) {
       }}
     >
       <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{label}</div>
-      <div style={{ wordBreak: "break-all" }}>{value || "<未设置>"}</div>
+      <div style={{ wordBreak: "break-all" }}>{value || t("diffNotSet")}</div>
     </div>
   );
 }

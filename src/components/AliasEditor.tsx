@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AliasItem } from "../stores/aliasStore";
+import type { Translate } from "../i18n";
 
 interface Props {
   store: {
@@ -8,9 +9,10 @@ interface Props {
     updateAlias: (name: string, command: string) => void;
     removeAlias: (name: string) => void;
   };
+  t: Translate;
 }
 
-function AliasEditor({ store }: Props) {
+function AliasEditor({ store, t }: Props) {
   const [name, setName] = useState("");
   const [command, setCommand] = useState("");
 
@@ -60,14 +62,14 @@ function AliasEditor({ store }: Props) {
               cursor: "pointer",
             }}
           >
-            删除
+            {t("aliasDelete")}
           </button>
         </div>
       ))}
 
       <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 80px", gap: 8 }}>
         <input
-          placeholder="别名"
+          placeholder={t("aliasNamePlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{
@@ -79,7 +81,7 @@ function AliasEditor({ store }: Props) {
           }}
         />
         <input
-          placeholder="命令"
+          placeholder={t("aliasCommandPlaceholder")}
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           style={{
@@ -102,7 +104,7 @@ function AliasEditor({ store }: Props) {
             fontWeight: 700,
           }}
         >
-          新增
+          {t("aliasAdd")}
         </button>
       </div>
     </div>
