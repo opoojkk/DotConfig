@@ -81,10 +81,12 @@ function App() {
     let rafId: number | null = null;
 
     const updateActiveCategory = () => {
-      const scrollTop = container.scrollTop;
-      const offset = 120; // 触发偏移量
+      const containerRect = container.getBoundingClientRect();
+      const offset = 150; // 触发偏移量（从容器顶部算起）
 
-      // 从后向前遍历，找到第一个在视口上方的分类
+      let newCategory: string | null = null;
+
+      // 从后向前遍历，找到第一个在触发位置之上的分类
       for (let i = CATEGORIES.length - 1; i >= 0; i--) {
         const category = CATEGORIES[i];
         const el = sectionRefs.current[category];
@@ -93,13 +95,32 @@ function App() {
         const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
         if (!el || hasItems === 0) continue;
 
-        if (el.offsetTop <= scrollTop + offset) {
-          if (category !== activeCategoryRef.current) {
-            activeCategoryRef.current = category;
-            setActiveCategory(category);
-          }
+        const rect = el.getBoundingClientRect();
+        // 计算元素顶部相对于容器顶部的位置
+        const relativeTop = rect.top - containerRect.top;
+
+        // 如果元素顶部在触发线之上或已经过了触发线
+        if (relativeTop <= offset) {
+          newCategory = category;
           break;
         }
+      }
+
+      // 如果没有找到符合条件的分类，使用第一个有内容的分类
+      if (!newCategory) {
+        for (const category of CATEGORIES) {
+          const hasItems = groupedSchema.find(g => g.category === category)?.items.length ?? 0;
+          if (hasItems > 0) {
+            newCategory = category;
+            break;
+          }
+        }
+      }
+
+      // 更新高亮
+      if (newCategory && newCategory !== activeCategoryRef.current) {
+        activeCategoryRef.current = newCategory;
+        setActiveCategory(newCategory);
       }
     };
 
